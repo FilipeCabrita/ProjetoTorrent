@@ -86,8 +86,6 @@ public class P2PFileSharingGUI extends JFrame {
         searchResultsModel.addElement("Ficheiro1.txt");
         searchResultsModel.addElement("Ficheiro2.pdf");
         searchResultsModel.addElement("Ficheiro3.mp3");
-
-        JOptionPane.showMessageDialog(this, "Pesquisa concluída!");
     }
 
     private void downloadSelectedFile() {

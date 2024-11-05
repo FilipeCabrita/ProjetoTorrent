@@ -1,0 +1,9 @@
+This is an example text file.
+You can add any content you like here.
+Feel free to modify this text as needed.
+
+- Line 1: Introduction
+- Line 2: Details
+- Line 3: Conclusion
+
+Thank you for using this example text file.

@@ -1,15 +1,21 @@
 import java.io.File;
-import java.util.ArrayList;
+import java.io.IOException;
+import java.net.Socket;
 import java.util.List;
+import java.util.ArrayList;
 
-class DownloadManager {
+public class DownloadManager {
     private SharedFilesManager sharedFilesManager;
     private List<FileBlockRequestMessage> blockRequestMessages;
-    private static final int BLOCK_SIZE = 10240; // 10 KB por bloco
+    private static final int BLOCK_SIZE = 10240; // 10KB
+    private String ipAddress;
+    private int port;
 
-    public DownloadManager(SharedFilesManager sharedFilesManager) {
+    public DownloadManager(SharedFilesManager sharedFilesManager, String ipAddress, int port) {
         this.sharedFilesManager = sharedFilesManager;
         this.blockRequestMessages = new ArrayList<>();
+        this.ipAddress = ipAddress;
+        this.port = port;
         createBlockRequests();
     }
 
@@ -20,7 +26,6 @@ class DownloadManager {
         for (File file : sharedFiles) {
             long fileSize = file.length();
             String fileName = file.getName();
-            
             int totalBlocks = (int) Math.ceil((double) fileSize / BLOCK_SIZE);
 
             for (int blockIndex = 0; blockIndex < totalBlocks; blockIndex++) {
@@ -31,26 +36,25 @@ class DownloadManager {
         }
     }
 
-    // Método para obter a lista de pedidos de blocos
+    // Método para iniciar a conexão com outro nó
+    public void connectToNode(String nodeIp, int nodePort) {
+        try (Socket socket = new Socket(nodeIp, nodePort)) {
+            System.out.println("Conectado ao nó: " + nodeIp + ":" + nodePort);
+            // Aqui você poderia enviar um pedido ou iniciar o processo de transferência
+        } catch (IOException e) {
+            System.out.println("Erro ao conectar ao nó: " + e.getMessage());
+        }
+    }
+
     public List<FileBlockRequestMessage> getBlockRequestMessages() {
         return blockRequestMessages;
     }
 
-    // Exemplo de uso
-    public static void main(String[] args) {
-        // Exemplo de pasta partilhada
-        String sharedFolderPath = "./downloads";
-        
-        // Inicializar o SharedFilesManager
-        SharedFilesManager sharedFilesManager = new SharedFilesManager(sharedFolderPath);
-        
-        // Inicializar o DownloadManager e criar pedidos de blocos
-        DownloadManager downloadManager = new DownloadManager(sharedFilesManager);
+    public String getIpAddress() {
+        return ipAddress;
+    }
 
-        // Exibir os pedidos de blocos
-        System.out.println("Pedidos de blocos de ficheiros:");
-        for (FileBlockRequestMessage message : downloadManager.getBlockRequestMessages()) {
-            System.out.println(message);
-        }
+    public int getPort() {
+        return port;
     }
 }

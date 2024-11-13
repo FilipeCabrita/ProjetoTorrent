@@ -14,7 +14,8 @@ public class P2PFileSharingApp extends JFrame {
 
     private JTextField searchField;
     private JButton searchButton;
-    private JTextArea resultArea;
+    private DefaultListModel<String> resultArea;
+    private JList<String> searchResultsList;
     private JButton downloadButton;
     private JButton connectButton;
 
@@ -30,7 +31,7 @@ public class P2PFileSharingApp extends JFrame {
         connectionManager.startServer();
 
         // Configurar a interface gráfica
-        setTitle("P2P File Sharing Application");
+        setTitle("Torrent App");
         setSize(600, 400);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
@@ -51,10 +52,10 @@ public class P2PFileSharingApp extends JFrame {
         searchPanel.add(searchButton, BorderLayout.EAST);
 
         // Área de Resultados
-        resultArea = new JTextArea();
-        resultArea.setEditable(false);
-        JScrollPane resultScrollPane = new JScrollPane(resultArea);
-
+        resultArea = new DefaultListModel<>();
+        searchResultsList = new JList<>(resultArea);
+        JScrollPane resultScrollPane = new JScrollPane(searchResultsList);
+        
         // Painel de Botões
         JPanel buttonPanel = new JPanel();
         downloadButton = new JButton("Descarregar Selecionado");
@@ -83,13 +84,25 @@ public class P2PFileSharingApp extends JFrame {
         add(buttonPanel, BorderLayout.SOUTH);
     }
 
+    private static String convertBytes(long bytes) {
+        if (bytes < 1024) {
+            return bytes + " B";
+        } else if (bytes < 1024 * 1024) {
+            return String.format("%.2f KB", bytes / 1024.0);
+        } else if (bytes < 1024 * 1024 * 1024) {
+            return String.format("%.2f MB", bytes / (1024.0 * 1024));
+        } else {
+            return String.format("%.2f GB", bytes / (1024.0 * 1024 * 1024));
+        }
+    }
+
     private void searchFile() {
         String keyword = searchField.getText();
         List<File> searchResults = sharedFilesManager.searchFiles(keyword);
 
-        resultArea.setText("Resultados da pesquisa por '" + keyword + "':\n");
+        setTitle("Resultados da pesquisa por '" + keyword + "':\n");
         for (File file : searchResults) {
-            resultArea.append("Nome: " + file.getName() + " | Tamanho: " + file.length() + " bytes\n");
+            resultArea.addElement("Nome: " + file.getName() + " | Tamanho: " + convertBytes(file.length()) + "\n");
         }
     }
 
@@ -98,7 +111,7 @@ public class P2PFileSharingApp extends JFrame {
         
         if (selectedFileName != null && !selectedFileName.isEmpty()) {
             // Exemplo: Aqui você iniciaria o processo de download
-            resultArea.append("\nIniciando download de: " + selectedFileName + "\n");
+            setTitle("\nIniciando download de: " + selectedFileName + "\n");
             // Adicionar lógica de download real baseada nos blocos de ficheiros
         } else {
             JOptionPane.showMessageDialog(this, "Nome do ficheiro inválido!", "Erro", JOptionPane.ERROR_MESSAGE);
@@ -113,7 +126,7 @@ public class P2PFileSharingApp extends JFrame {
             try {
                 int nodePort = Integer.parseInt(nodePortStr);
                 downloadManager.connectToNode(nodeIp, nodePort);
-                resultArea.append("Conectado ao nó: " + nodeIp + ":" + nodePort + "\n");
+                setTitle("Conectado ao nó: " + nodeIp + ":" + nodePort + "\n");
             } catch (NumberFormatException e) {
                 JOptionPane.showMessageDialog(this, "Porta inválida!", "Erro", JOptionPane.ERROR_MESSAGE);
             }

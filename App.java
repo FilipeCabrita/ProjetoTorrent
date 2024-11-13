@@ -7,7 +7,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.List;
 
-public class P2PFileSharingApp extends JFrame {
+public class App extends JFrame {
     private SharedFilesManager sharedFilesManager;
     private DownloadManager downloadManager;
     private ConnectionManager connectionManager;
@@ -20,7 +20,7 @@ public class P2PFileSharingApp extends JFrame {
     private JButton connectButton;
 
     // Construtor atualizado para receber a pasta compartilhada e a porta
-    public P2PFileSharingApp(String sharedFolderPath, int port) throws UnknownHostException {
+    public App(String sharedFolderPath, int port) throws UnknownHostException {
         // Obter o IP local do computador
         String ipAddress = InetAddress.getLocalHost().getHostAddress();
         
@@ -147,7 +147,7 @@ public class P2PFileSharingApp extends JFrame {
 
         try {
             // Criar a GUI da aplicação
-            P2PFileSharingApp app = new P2PFileSharingApp(sharedFolderPath, port);
+            App app = new App(sharedFolderPath, port);
             app.setVisible(true);
         } catch (UnknownHostException e) {
             JOptionPane.showMessageDialog(null, "Erro ao obter o IP do computador.", "Erro", JOptionPane.ERROR_MESSAGE);

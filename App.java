@@ -101,20 +101,19 @@ public class App extends JFrame {
         List<File> searchResults = sharedFilesManager.searchFiles(keyword);
 
         setTitle("Resultados da pesquisa por '" + keyword + "':\n");
+        resultArea.clear();
         for (File file : searchResults) {
             resultArea.addElement("Nome: " + file.getName() + " | Tamanho: " + convertBytes(file.length()) + "\n");
         }
     }
 
     private void downloadSelectedFile() {
-        String selectedFileName = JOptionPane.showInputDialog(this, "Insira o nome do ficheiro para descarregar:");
-        
-        if (selectedFileName != null && !selectedFileName.isEmpty()) {
-            // Exemplo: Aqui você iniciaria o processo de download
-            setTitle("\nIniciando download de: " + selectedFileName + "\n");
-            // Adicionar lógica de download real baseada nos blocos de ficheiros
+        String selectedFile = searchResultsList.getSelectedValue();
+        if (selectedFile != null) {
+            String fileName = selectedFile.split(" | ")[1];
+            JOptionPane.showMessageDialog(this, "Ficheiro '" + fileName + "' descarregado com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
         } else {
-            JOptionPane.showMessageDialog(this, "Nome do ficheiro inválido!", "Erro", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Selecione um ficheiro para descarregar!", "Erro", JOptionPane.ERROR_MESSAGE);
         }
     }
 

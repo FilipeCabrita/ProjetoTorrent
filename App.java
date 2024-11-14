@@ -138,7 +138,7 @@ public class App extends JFrame {
     public static void main(String[] args) {
         // Recebe porta e pasta compartilhada como parâmetros
         if (args.length < 2) {
-            System.out.println("Uso: java P2PFileSharingApp.java <porta> <caminho_da_pasta>");
+            System.out.println("Uso: java App.java <porta> <caminho_da_pasta>");
             System.exit(1);
         }
 

@@ -44,7 +44,8 @@ public class App extends JFrame {
         searchButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                searchFile();
+                //searchFile();
+                searchFileDistributed();
             }
         });
         searchPanel.add(new JLabel("Pesquisar Ficheiro: "), BorderLayout.WEST);
@@ -71,7 +72,7 @@ public class App extends JFrame {
         connectButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                connectToNode();
+                    connectToNode();
             }
         });
 
@@ -84,7 +85,7 @@ public class App extends JFrame {
         add(buttonPanel, BorderLayout.SOUTH);
     }
 
-    private static String convertBytes(long bytes) {
+    public static String convertBytes(long bytes) {
         if (bytes < 1024) {
             return bytes + " B";
         } else if (bytes < 1024 * 1024) {
@@ -104,6 +105,30 @@ public class App extends JFrame {
         resultArea.clear();
         for (File file : searchResults) {
             resultArea.addElement("Nome: " + file.getName() + " | Tamanho: " + convertBytes(file.length()) + "\n");
+        }
+    }
+
+    private void searchFileDistributed() {
+        String keyword = searchField.getText();
+    
+        if (keyword == null || keyword.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Insira um termo para pesquisar!", "Erro", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+    
+        // Buscar arquivos localmente
+        List<File> localSearchResults = sharedFilesManager.searchFiles(keyword);
+    
+        // Adicionar resultados locais à interface gráfica
+        resultArea.clear();
+        for (File file : localSearchResults) {
+            resultArea.addElement("Local | Nome: " + file.getName() + " | Tamanho: " + convertBytes(file.length()));
+        }
+    
+        // Buscar arquivos em nós conectados
+        List<String> distributedResults = downloadManager.searchFilesInConnectedNodes(keyword);
+        for (String result : distributedResults) {
+            resultArea.addElement(result);
         }
     }
 

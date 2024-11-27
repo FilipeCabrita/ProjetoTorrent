@@ -9,7 +9,7 @@ import java.util.List;
 
 public class App extends JFrame {
     private SharedFilesManager sharedFilesManager;
-    private DownloadManager downloadManager;
+    private DownloadTaskManager downloadManager;
     private ConnectionManager connectionManager;
 
     private JTextField searchField;
@@ -26,7 +26,7 @@ public class App extends JFrame {
         
         // Configurar as classes principais com o IP local e a porta
         sharedFilesManager = new SharedFilesManager(sharedFolderPath);
-        downloadManager = new DownloadManager(sharedFilesManager, ipAddress, port);
+        downloadManager = new DownloadTaskManager(sharedFilesManager, ipAddress, port);
         connectionManager = new ConnectionManager(downloadManager);
         connectionManager.startServer();
 
@@ -94,17 +94,6 @@ public class App extends JFrame {
             return String.format("%.2f MB", bytes / (1024.0 * 1024));
         } else {
             return String.format("%.2f GB", bytes / (1024.0 * 1024 * 1024));
-        }
-    }
-
-    private void searchFile() {
-        String keyword = searchField.getText();
-        List<File> searchResults = sharedFilesManager.searchFiles(keyword);
-
-        setTitle("Resultados da pesquisa por '" + keyword + "':\n");
-        resultArea.clear();
-        for (File file : searchResults) {
-            resultArea.addElement("Nome: " + file.getName() + " | Tamanho: " + convertBytes(file.length()) + "\n");
         }
     }
 

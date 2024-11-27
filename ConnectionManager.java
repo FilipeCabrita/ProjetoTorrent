@@ -4,11 +4,11 @@ import java.util.*;
 import java.util.concurrent.*;
 
 public class ConnectionManager {
-    private DownloadManager downloadManager;
+    private DownloadTaskManager downloadManager;
     private ServerSocket serverSocket;
     private List<NodeConnection> activeConnections; // Lista de conexões ativas
 
-    public ConnectionManager(DownloadManager downloadManager) {
+    public ConnectionManager(DownloadTaskManager downloadManager) {
         this.downloadManager = downloadManager;
         this.activeConnections = new CopyOnWriteArrayList<>(); // Lista thread-safe
     }

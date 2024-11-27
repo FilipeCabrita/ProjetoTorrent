@@ -3,7 +3,7 @@ import java.net.Socket;
 import java.util.List;
 import java.util.ArrayList;
 
-public class DownloadManager {
+public class DownloadTaskManager {
     private SharedFilesManager sharedFilesManager;
     private List<FileBlockRequestMessage> blockRequestMessages;
     private static final int BLOCK_SIZE = 10240; // 10KB
@@ -11,7 +11,7 @@ public class DownloadManager {
     private int port;
     private List<NodeConnection> activeConnections; // Lista de conexões ativas
 
-    public DownloadManager(SharedFilesManager sharedFilesManager, String ipAddress, int port) {
+    public DownloadTaskManager(SharedFilesManager sharedFilesManager, String ipAddress, int port) {
         this.sharedFilesManager = sharedFilesManager;
         this.blockRequestMessages = new ArrayList<>();
         this.ipAddress = ipAddress;

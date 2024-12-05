@@ -129,7 +129,8 @@ public class App extends JFrame {
     private void downloadSelectedFile() {
         String selectedFile = searchResultsList.getSelectedValue();
         if (selectedFile != null) {
-            String fileName = selectedFile.split(" | ")[1];
+            String fileName = selectedFile.split("\\|")[1].split("\\:")[1].trim();
+            System.out.println(fileName);
             JOptionPane.showMessageDialog(this, "Ficheiro '" + fileName + "' descarregado com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
         } else {
             JOptionPane.showMessageDialog(this, "Selecione um ficheiro para descarregar!", "Erro", JOptionPane.ERROR_MESSAGE);

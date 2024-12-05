@@ -40,7 +40,7 @@ public class DownloadTaskManager {
     // Método para iniciar a conexão com outro nó
     public void connectToNode(String nodeIp, int nodePort) {
         try (Socket socket = new Socket(nodeIp, nodePort)) {
-            System.out.println("Conectado ao nó: " + nodeIp + ":" + nodePort);
+            System.out.println("Conectado ao nó: " + nodeIp + ":" + nodePort + " a usar a porta local " + socket.getLocalPort());
 
             // Adicionar o nó à lista de conexões ativas
             NodeConnection newConnection = new NodeConnection(nodeIp, nodePort);
@@ -91,6 +91,7 @@ public class DownloadTaskManager {
                 while ((response = in.readLine()) != null) {
                     results.add("Remoto | " + response);
                 }
+                System.out.println("Conexões ativas: " + activeConnections);
     
             } catch (IOException e) {
                 System.out.println("Erro ao buscar no nó " + connection.getIp() + ":" + connection.getPort() + " - " + e.getMessage());

@@ -18,6 +18,7 @@ public class App extends JFrame {
     private JList<String> searchResultsList;
     private JButton downloadButton;
     private JButton connectButton;
+    private JTextArea appInfo;
 
     // Construtor atualizado para receber a pasta compartilhada e a porta
     public App(String sharedFolderPath, int port) throws UnknownHostException {
@@ -45,7 +46,7 @@ public class App extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 //searchFile();
-                searchFileDistributed();
+                searchResults();
             }
         });
         searchPanel.add(new JLabel("Pesquisar Ficheiro: "), BorderLayout.WEST);
@@ -61,6 +62,9 @@ public class App extends JFrame {
         JPanel buttonPanel = new JPanel();
         downloadButton = new JButton("Descarregar Selecionado");
         connectButton = new JButton("Conectar a outro nó");
+        appInfo = new JTextArea("IP: " + ipAddress + "\nPorta: " + port);
+        appInfo.setEditable(false);
+        appInfo.setBackground(UIManager.getColor("Label.background"));
 
         downloadButton.addActionListener(new ActionListener() {
             @Override
@@ -78,6 +82,7 @@ public class App extends JFrame {
 
         buttonPanel.add(downloadButton);
         buttonPanel.add(connectButton);
+        buttonPanel.add(appInfo);
 
         // Adicionar componentes à janela principal
         add(searchPanel, BorderLayout.NORTH);
@@ -97,7 +102,7 @@ public class App extends JFrame {
         }
     }
 
-    private void searchFileDistributed() {
+    private void searchResults() {
         String keyword = searchField.getText();
     
         if (keyword == null || keyword.isEmpty()) {

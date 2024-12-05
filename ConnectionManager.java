@@ -27,11 +27,18 @@ public class ConnectionManager {
                         Socket clientSocket = serverSocket.accept();
                         System.out.println("Conexão recebida de " + clientSocket.getInetAddress().getHostAddress());
 
-                        // Adicionar o nó à lista de conexões
-                        NodeConnection newConnection = new NodeConnection(
-                                clientSocket.getInetAddress().getHostAddress(), clientSocket.getLocalPort());
-                        activeConnections.add(newConnection);
-                        System.out.println("Conexões ativas: " + activeConnections);
+
+                        // Adicionar o nó à lista de conexões ativas se ainda não estiver presente
+                        if (activeConnections.stream().noneMatch(
+                                conn -> conn.getIp().equals(clientSocket.getInetAddress().getHostAddress())
+                                        && conn.getPort() == clientSocket.getLocalPort())) {
+                            NodeConnection newConnection = new NodeConnection(
+                                    clientSocket.getInetAddress().getHostAddress(), clientSocket.getLocalPort());
+                            activeConnections.add(newConnection);
+                            System.out.println("Conexões ativas: " + activeConnections);
+                        } else {
+                            System.out.println("Conexão já existente.");
+                        }
 
                         // Processar o pedido do cliente
                         handleClientRequest(clientSocket);
@@ -46,7 +53,6 @@ public class ConnectionManager {
     }
 
     // Método para processar pedidos do cliente
-    // Método para processar pedidos do cliente
     private void handleClientRequest(Socket clientSocket) {
         try (BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
                 PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true)) {
@@ -56,12 +62,11 @@ public class ConnectionManager {
             if (request != null && request.startsWith("SEARCH:")) {
                 String keyword = request.substring(7); // Extrair o termo de busca
                 System.out.println("Pedido de busca recebido: " + keyword);
-
                 List<File> searchResults = downloadManager.getSharedFilesManager().searchFiles(keyword);
                 for (File file : searchResults) {
                     out.println("Nome: " + file.getName() + " | Tamanho: " + App.convertBytes(file.length()));
                 }
-
+                System.out.println("Conexões ativas: " + activeConnections);
                 System.out.println("Resultados enviados para o cliente.");
             }
         } catch (IOException e) {

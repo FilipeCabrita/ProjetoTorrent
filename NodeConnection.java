@@ -7,7 +7,7 @@ public class NodeConnection {
         this.port = port;
     }
 
-    public String getIp() {
+    public String getIpAddress() {
         return ip;
     }
 

@@ -2,7 +2,6 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.io.File;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.List;
@@ -109,15 +108,9 @@ public class App extends JFrame {
             JOptionPane.showMessageDialog(this, "Insira um termo para pesquisar!", "Erro", JOptionPane.ERROR_MESSAGE);
             return;
         }
-    
-        // Buscar arquivos localmente
-        List<File> localSearchResults = sharedFilesManager.searchFiles(keyword);
-    
+        
         // Adicionar resultados locais à interface gráfica
         resultArea.clear();
-        for (File file : localSearchResults) {
-            resultArea.addElement("Local | Nome: " + file.getName() + " | Tamanho: " + convertBytes(file.length()));
-        }
     
         // Buscar arquivos em nós conectados
         List<String> distributedResults = downloadManager.searchFilesInConnectedNodes(keyword);
@@ -130,7 +123,6 @@ public class App extends JFrame {
         String selectedFile = searchResultsList.getSelectedValue();
         if (selectedFile != null) {
             String fileName = selectedFile.split("\\|")[1].split("\\:")[1].trim();
-            System.out.println(fileName);
             JOptionPane.showMessageDialog(this, "Ficheiro '" + fileName + "' descarregado com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
         } else {
             JOptionPane.showMessageDialog(this, "Selecione um ficheiro para descarregar!", "Erro", JOptionPane.ERROR_MESSAGE);

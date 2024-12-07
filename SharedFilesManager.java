@@ -34,6 +34,11 @@ public class SharedFilesManager {
         }
     }
 
+    // Método para obter o caminho da pasta partilhada
+    public String getSharedFolderPath() {
+        return sharedFolderPath;
+    }
+
     // Método para obter a lista de ficheiros partilhados
     public List<File> getSharedFiles() {
         return sharedFiles;

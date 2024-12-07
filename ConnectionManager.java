@@ -30,7 +30,7 @@ public class ConnectionManager {
 
                         // Adicionar o nó à lista de conexões ativas se ainda não estiver presente
                         if (activeConnections.stream().noneMatch(
-                                conn -> conn.getIp().equals(clientSocket.getInetAddress().getHostAddress())
+                                conn -> conn.getIpAddress().equals(clientSocket.getInetAddress().getHostAddress())
                                         && conn.getPort() == clientSocket.getLocalPort())) {
                             NodeConnection newConnection = new NodeConnection(
                                     clientSocket.getInetAddress().getHostAddress(), clientSocket.getLocalPort());

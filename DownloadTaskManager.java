@@ -75,29 +75,30 @@ public class DownloadTaskManager {
         return activeConnections;
     }
 
+    // Método para pesquisar ficheiros em nós conectados
     public List<String> searchFilesInConnectedNodes(String keyword) {
         List<String> results = new ArrayList<>();
-    
+
         for (NodeConnection connection : activeConnections) {
-            try (Socket socket = new Socket(connection.getIp(), connection.getPort());
-                 PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-                 BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
-    
+            try (Socket socket = new Socket(connection.getIpAddress(), connection.getPort());
+                    PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+                    BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
+
                 // Enviar pedido de busca
                 out.println("SEARCH:" + keyword);
-    
+
                 // Ler respostas
                 String response;
                 while ((response = in.readLine()) != null) {
                     results.add("Remoto | " + response);
                 }
                 System.out.println("Conexões ativas: " + activeConnections);
-    
+
             } catch (IOException e) {
-                System.out.println("Erro ao buscar no nó " + connection.getIp() + ":" + connection.getPort() + " - " + e.getMessage());
+                System.out.println("Erro ao buscar no nó " + connection.getIpAddress() + ":" + connection.getPort() + " - " + e.getMessage());
             }
         }
-    
+
         return results;
     }
 

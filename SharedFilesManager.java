@@ -56,25 +56,13 @@ public class SharedFilesManager {
         return searchResults;
     }
 
-    // Exemplo de uso
-    public static void main(String[] args) {
-        // Exemplo de caminho da pasta (modificar conforme necessário)
-        String sharedFolderPath = "./downloads";
-        
-        // Instancia o gestor de ficheiros partilhados
-        SharedFilesManager manager = new SharedFilesManager(sharedFolderPath);
-
-        // Exibe todos os ficheiros partilhados
-        System.out.println("Ficheiros partilhados:");
-        for (File file : manager.getSharedFiles()) {
-            System.out.println(file.getName());
+    // Método para obter um ficheiro pelo nome
+    public File getFileByName(String fileName) {
+        for (File file : sharedFiles) {
+            if (file.getName().equals(fileName)) {
+                return file;
+            }
         }
-
-        // Pesquisa por ficheiros que contêm "exemplo" no nome
-        List<File> searchResults = manager.searchFiles("exemplo");
-        System.out.println("\nResultados da pesquisa:");
-        for (File file : searchResults) {
-            System.out.println(file.getName());
-        }
+        return null;
     }
 }

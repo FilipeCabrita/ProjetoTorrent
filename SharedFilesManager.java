@@ -15,6 +15,7 @@ public class SharedFilesManager {
 
     // Método para carregar os ficheiros da pasta especificada
     private void loadSharedFiles() {
+        sharedFiles.clear();
         File folder = new File(sharedFolderPath);
         
         // Verifica se o caminho é uma pasta válida

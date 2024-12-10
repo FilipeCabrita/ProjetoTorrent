@@ -24,6 +24,11 @@ public class SharedFilesManager {
             
             if (files != null) {
                 for (File file : files) {
+                    // Ignora ficheiros ocultos
+                    if (file.getName().startsWith(".")) {
+                        continue;
+                    }
+                    
                     // Verifica se é um ficheiro e não uma subpasta
                     if (file.isFile()) {
                         sharedFiles.add(file);

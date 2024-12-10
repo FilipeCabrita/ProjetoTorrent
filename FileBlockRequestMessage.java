@@ -22,9 +22,7 @@ class FileBlockRequestMessage {
         return blockSize;
     }
 
-    public long getOffset() {
-        return (long) blockIndex * blockSize;
-    }
+    
 
     @Override
     public String toString() {

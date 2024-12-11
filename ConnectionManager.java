@@ -60,7 +60,7 @@ public class ConnectionManager {
                 PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);) {
 
             String request = in.readLine();
-            
+
             // Verificar o tipo de pedido
             // Pedido de conexão
             if (request != null && request.startsWith("HELLO:")) {
@@ -88,17 +88,48 @@ public class ConnectionManager {
                 }
 
                 System.out.println("Resultados enviados para o cliente.");
-            // Pedido de download
+                // Pedido de download
             } else if (request != null && request.startsWith("DOWNLOAD")) {
                 String fileName = request.substring(9); // Extrair o nome do ficheiro
+                String checksum = "";
                 System.out.println("Pedido de download recebido: " + fileName);
                 File file = downloadManager.getSharedFilesManager().getFileByName(fileName);
                 if (file != null) {
                     System.out.println("Ficheiro encontrado: " + file.getName());
-                    out.println("true"); // Enviar confirmação
+                    int fileBlocks = 0;
+                    try {
+                        byte[] data = Files.readAllBytes(file.toPath());
+                        byte[] hash = MessageDigest.getInstance("MD5").digest(data);
+                        checksum = new BigInteger(1, hash).toString(16);
+                    } catch (NoSuchAlgorithmException e) {
+                        System.out.println("Erro ao criar instância de MessageDigest: " + e.getMessage());
+                    }
+                    for (FileBlockRequestMessage message : downloadManager.getBlockRequestMessages()) {
+                        if (message.getFileName().equals(fileName)) {
+                            fileBlocks++;
+                        }
+                    }
+                    out.println("DOWNLOAD_RESPONSE:true:" + checksum + ":" + fileBlocks); // Enviar resposta de sucesso
                 } else {
-                    out.println("false"); // Enviar negação
+                    out.println("DOWNLOAD_RESPONSE:false"); // Enviar resposta de erro
                 }
+            } else if (request != null && request.startsWith("BLOCK_REQUEST:")) {
+                String[] parts = request.split(":");
+                try (ObjectOutputStream objectOut = new ObjectOutputStream(clientSocket.getOutputStream())) {
+                    String fileChecksum = parts[1];
+                    int blockIndex = Integer.parseInt(parts[2]);
+                    for (FileBlockRequestMessage message : downloadManager.getBlockRequestMessages()) {
+                        if (message.getFileChecksum().equals(fileChecksum) && message.getBlockIndex() == blockIndex) {
+                            objectOut.writeObject(message); // Enviar bloco de ficheiro
+                            System.out.println("Bloco de ficheiro" + blockIndex + "enviado para o cliente.");
+                            break;
+                        }
+                    }
+                } catch (Exception e) {
+                    System.out.println("Erro ao enviar bloco de ficheiro: " + e.getMessage() + ":" + request);
+                }
+            } else {
+                System.out.println("Pedido inválido recebido.");
             }
         } catch (IOException e) {
             System.out.println("Erro ao processar pedido do cliente: " + e.getMessage());

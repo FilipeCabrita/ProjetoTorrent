@@ -28,7 +28,7 @@ public class App extends JFrame {
     public App(String sharedFolderPath, int port) throws UnknownHostException {
         // Obter o IP local do computador
         String ipAddress = InetAddress.getLocalHost().getHostAddress();
-        
+
         // Configurar as classes principais com o IP local e a porta
         sharedFilesManager = new SharedFilesManager(sharedFolderPath);
         downloadManager = new DownloadTaskManager(sharedFilesManager, ipAddress, port);
@@ -49,7 +49,6 @@ public class App extends JFrame {
         searchButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                //searchFile();
                 searchResults();
             }
         });
@@ -61,7 +60,7 @@ public class App extends JFrame {
         resultArea = new DefaultListModel<>();
         searchResultsList = new JList<>(resultArea);
         JScrollPane resultScrollPane = new JScrollPane(searchResultsList);
-        
+
         // Painel de Botões
         JPanel buttonPanel = new JPanel();
         downloadButton = new JButton("Descarregar Selecionado");
@@ -80,7 +79,7 @@ public class App extends JFrame {
         connectButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                    connectToNode();
+                connectToNode();
             }
         });
 
@@ -135,23 +134,22 @@ public class App extends JFrame {
         return new ArrayList<>(resultSet);
     }
 
-
     private void searchResults() {
         String keyword = searchField.getText();
-    
+
         if (keyword == null || keyword.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Insira um termo para pesquisar!", "Erro", JOptionPane.ERROR_MESSAGE);
             return;
         }
-        
+
         // Adicionar resultados locais à interface gráfica
         resultArea.clear();
-    
+
         // Buscar arquivos em nós conectados
         List<String> distributedResults = downloadManager.searchFilesInConnectedNodes(keyword);
         // Processar os resultados
         List<String> uniqueResults = processResults(distributedResults);
-        
+
         for (String result : uniqueResults) {
             String name = result.split(":")[0];
             String size = result.split(":")[1];
@@ -159,30 +157,34 @@ public class App extends JFrame {
             result = name + " | Tamanho: " + convertBytes(Long.parseLong(size)) + " | Nós: " + count;
             resultArea.addElement(result);
         }
-        
+
     }
 
     private void downloadSelectedFile() {
         String selectedFile = searchResultsList.getSelectedValue();
         if (selectedFile != null) {
             String fileName = selectedFile.split("\\|")[0].trim();
-            List<NodeConnection> nodesWithFile = new ArrayList<>();
             try {
-                nodesWithFile = downloadManager.requestDownloadToNodes(fileName);
-                System.out.println("Nós com o ficheiro '" + fileName + "': " + nodesWithFile);
+                downloadManager.requestDownloadToNodes(fileName);
             } catch (Exception e) {
-                JOptionPane.showMessageDialog(this, "Erro ao descarregar o ficheiro '" + fileName + "'", "Erro", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Erro ao descarregar o ficheiro '" + fileName + "'", "Erro",
+                        JOptionPane.ERROR_MESSAGE);
+                sharedFilesManager.loadSharedFiles();
+                return;
             }
-            JOptionPane.showMessageDialog(this, "Ficheiro '" + fileName + "' descarregado com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Ficheiro '" + fileName + "' descarregado com sucesso!", "Sucesso",
+                    JOptionPane.INFORMATION_MESSAGE);
+            sharedFilesManager.loadSharedFiles();
         } else {
-            JOptionPane.showMessageDialog(this, "Selecione um ficheiro para descarregar!", "Erro", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Selecione um ficheiro para descarregar!", "Erro",
+                    JOptionPane.ERROR_MESSAGE);
         }
     }
 
     private void connectToNode() {
         String nodeIp = JOptionPane.showInputDialog(this, "Insira o IP do nó:");
         String nodePortStr = JOptionPane.showInputDialog(this, "Insira a porta do nó:");
-        
+
         if (nodeIp != null && !nodeIp.isEmpty() && nodePortStr != null && !nodePortStr.isEmpty()) {
             try {
                 int nodePort = Integer.parseInt(nodePortStr);

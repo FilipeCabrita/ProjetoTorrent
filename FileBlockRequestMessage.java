@@ -19,7 +19,7 @@ class FileBlockRequestMessage implements Serializable {
         this.data = data;
         this.fileChecksum = fileChecksum;
         try {
-            byte[] hash = MessageDigest.getInstance("MD5").digest(data);
+            byte[] hash = MessageDigest.getInstance("SHA-256").digest(data);
             this.blockChecksum = new BigInteger(1, hash).toString(16);
         } catch (NoSuchAlgorithmException e) {
             System.out.println("Erro ao criar instância de MessageDigest: " + e.getMessage());

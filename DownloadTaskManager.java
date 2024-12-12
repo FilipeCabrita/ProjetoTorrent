@@ -1,8 +1,9 @@
 import java.io.*;
-import java.net.Socket;
-import java.util.List;
-import java.util.ArrayList;
-import java.util.HashSet;
+import java.net.*;
+import java.util.*;
+import java.util.concurrent.*;
+
+import javax.swing.DefaultListModel;
 
 public class DownloadTaskManager {
     private SharedFilesManager sharedFilesManager;
@@ -51,16 +52,18 @@ public class DownloadTaskManager {
     // Método para iniciar a conexão com outro nó
     public void connectToNode(String nodeIp, int nodePort) {
         try (Socket socket = new Socket(nodeIp, nodePort);
-                PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-                BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
+                ObjectOutputStream objectOut = new ObjectOutputStream(socket.getOutputStream());
+                ObjectInputStream objectIn = new ObjectInputStream(socket.getInputStream())) {
 
-            out.println("HELLO:" + ipAddress + ":" + port);
+            // Enviar pedido de conexão
+            HelloMessage helloMessage = new HelloMessage(ipAddress, port);
+            objectOut.writeObject(helloMessage);
 
             // Ler a resposta
-            String response = in.readLine();
+            HelloMessage response = (HelloMessage) objectIn.readObject();
             System.out.println("Resposta do nó " + nodeIp + ":" + nodePort + ": " + response);
 
-            if (!response.equals("HELLO")) {
+            if (!response.getType().equals("HELLO")) {
                 System.out.println("Erro ao conectar ao nó: resposta inesperada.");
                 return;
             }
@@ -74,7 +77,7 @@ public class DownloadTaskManager {
             System.out.println("Conexões ativas: " + activeConnections);
 
             // Aqui você poderia enviar um pedido ou iniciar o processo de transferência
-        } catch (IOException e) {
+        } catch (IOException | ClassNotFoundException e) {
             System.out.println("Erro ao conectar ao nó: " + e.getMessage());
         }
     }
@@ -101,30 +104,72 @@ public class DownloadTaskManager {
         return activeConnections;
     }
 
+    private List<String> processResults(List<String> fileList) {
+        // Map para contar as ocorrências de cada hash
+        Map<String, Integer> hashCounts = new HashMap<>();
+
+        // Contar ocorrências de cada hash
+        for (String file : fileList) {
+            String[] parts = file.split(":");
+            String hash = parts[2];
+            hashCounts.put(hash, hashCounts.getOrDefault(hash, 0) + 1);
+        }
+
+        // Adicionar o número de ocorrências e remover duplicados
+        Set<String> resultSet = new LinkedHashSet<>();
+        for (String file : fileList) {
+            String[] parts = file.split(":");
+            String name = parts[0];
+            String size = parts[1];
+            String hash = parts[2];
+            int count = hashCounts.get(hash);
+
+            // Construir a nova string com a contagem
+            String updatedFile = String.format("%s:%s:%s:%d", name, size, hash, count);
+            resultSet.add(updatedFile); // LinkedHashSet mantém a ordem e remove duplicados
+        }
+
+        // Retornar como lista
+        return new ArrayList<>(resultSet);
+    }
+
     // Método para pesquisar ficheiros em nós conectados
-    public List<String> searchFilesInConnectedNodes(String keyword) {
-        List<String> results = new ArrayList<>();
+    public List<String> searchFilesInConnectedNodes(String keyword, DefaultListModel<String> resultArea) {
+        List<String> results = Collections.synchronizedList(new ArrayList<>());
         List<Thread> threads = new ArrayList<>();
 
         for (NodeConnection connection : activeConnections) {
             Thread thread = new Thread() {
                 public void run() {
                     try (Socket socket = new Socket(connection.getIpAddress(), connection.getPort());
-                            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-                            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
+                            ObjectOutputStream objectOut = new ObjectOutputStream(socket.getOutputStream());
+                            ObjectInputStream objectIn = new ObjectInputStream(socket.getInputStream())) {
 
                         // Enviar pedido de busca
-                        out.println("SEARCH:" + keyword);
+                        SearchMessage searchMessage = new SearchMessage(keyword);
+                        objectOut.writeObject(searchMessage);
 
                         // Ler respostas
-                        String response;
-                        while ((response = in.readLine()) != null) {
-                            synchronized (results) {
-                                results.add(response);
+                        SearchResultsMessage response;
+                        try {
+                            response = (SearchResultsMessage) objectIn.readObject();
+                            if (response != null && response.getType().equals("SEARCH_RESULTS")) {
+                                results.addAll(response.getResults());
+                                List<String> uniqueResults = processResults(results);
+                                for (String result : uniqueResults) {
+                                    String name = result.split(":")[0];
+                                    String size = result.split(":")[1];
+                                    int count = Integer.parseInt(result.split(":")[3]);
+                                    result = name + " | Tamanho: " + App.convertBytes(Long.parseLong(size)) + " | Nós: " + count;
+                                    resultArea.addElement(result);
+                                }
+                                System.out.println("Resposta do nó " + connection.getIpAddress() + ":"
+                                        + connection.getPort()
+                                        + ": " + response.getMessage());
                             }
+                        } catch (ClassNotFoundException e) {
+                            System.out.println("Erro ao ler objeto: " + e.getMessage());
                         }
-                        System.out.println("Conexões ativas: " + activeConnections);
-
                     } catch (IOException e) {
                         System.out.println("Erro ao buscar no nó " + connection.getIpAddress() + ":"
                                 + connection.getPort() + " - " + e.getMessage());
@@ -133,15 +178,6 @@ public class DownloadTaskManager {
             };
             threads.add(thread);
             thread.start();
-        }
-
-        // Esperar que todas as threads terminem
-        for (Thread thread : threads) {
-            try {
-                thread.join();
-            } catch (InterruptedException e) {
-                System.out.println("Erro ao esperar pela thread: " + e.getMessage());
-            }
         }
 
         return results;
@@ -162,19 +198,21 @@ public class DownloadTaskManager {
             Thread thread = new Thread() {
                 public void run() {
                     try (Socket socket = new Socket(connection.getIpAddress(), connection.getPort());
-                            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-                            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
+                            ObjectOutputStream objectOut = new ObjectOutputStream(socket.getOutputStream());
+                            ObjectInputStream objectIn = new ObjectInputStream(socket.getInputStream())) {
 
                         // Enviar pedido de download
-                        out.println("DOWNLOAD:" + fileName);
+                        DownloadMessage downloadMessage = new DownloadMessage(fileName);
+                        objectOut.writeObject(downloadMessage);
 
                         // Ler respostas
-                        String response;
-                        while ((response = in.readLine()) != null) {
-                            if (response.startsWith("DOWNLOAD_RESPONSE:")) {
-                                if (response.split(":")[1].equals("true")) {
-                                    response = response.split(":")[2] + ":" + response.split(":")[3];
-                                    responses.add(response);
+                        DownloadResultMessage response;
+                        try {
+                            response = (DownloadResultMessage) objectIn.readObject();
+                            if (response != null && response.getType().equals("DOWNLOAD_RESULT")) {
+                                if (response.hasFile()) {
+                                    String responseString = response.getChecksum() + ":" + response.getFileBlocks();
+                                    responses.add(responseString);
                                     synchronized (nodesWithFile) {
                                         nodesWithFile.add(connection);
                                     }
@@ -182,6 +220,8 @@ public class DownloadTaskManager {
                             }
                             System.out.println("Resposta do nó " + connection.getIpAddress() + ":"
                                     + connection.getPort() + ": " + response);
+                        } catch (ClassNotFoundException e) {
+                            System.out.println("Erro ao ler objeto: " + e.getMessage());
                         }
                     } catch (IOException e) {
                         System.out.println("Erro ao solicitar download ao nó " + connection.getIpAddress() + ":"
@@ -201,66 +241,53 @@ public class DownloadTaskManager {
                 System.out.println("Erro ao esperar pela thread: " + e.getMessage());
             }
         }
-        requestFileBlocks(fileName, nodesWithFile, responses, null);
-        rebuildFile(fileName);
+        List<FileBlockRequestMessage> fileBlocks = requestFileBlocksThreadPool(fileName, nodesWithFile, responses);
+        rebuildFile(fileBlocks);
     }
 
     // Método para solicitar blocos de ficheiros a nós conectados
-    private void requestFileBlocks(String fileName, List<NodeConnection> nodesWithFile, List<String> responses,
-            List<String> blocksToRepeat) {
+    public List<FileBlockRequestMessage> requestFileBlocksThreadPool(String fileName,
+            List<NodeConnection> nodesWithFile,
+            List<String> responses) {
         blockRequests.clear();
-        List<Thread> threads = new ArrayList<>();
         List<Integer> blocksToRequest = new ArrayList<>();
         String fileChecksum = responses.get(0).split(":")[0];
         // Eliminar duplicados em responses
         responses = new ArrayList<>(new HashSet<>(responses));
+
         // Se ainda houver respostas diferentes dá erro
         if (responses.size() > 1) {
             System.out.println("Erro: múltiplas respostas diferentes para o mesmo ficheiro.");
-            return;
+            return null;
         }
-        if (blocksToRepeat == null) {
+        // Numero de blocos
+        int totalBlocks = Integer.valueOf(responses.get(0).split(":")[1]);
 
-            for (int i = 0; i < Integer.valueOf(responses.get(0).split(":")[1]); i++) {
-                blocksToRequest.add(i);
-            }
-        } else {
-            for (String block : blocksToRepeat) {
-                blocksToRequest.add(Integer.valueOf(block));
-            }
+        for (int i = 0; i < totalBlocks; i++) {
+            blocksToRequest.add(i);
         }
 
-        // Cria um diretorio temporario para armazenar os blocos dentro do diretorio
-        // partilhado
-        File tempDir = new File(sharedFilesManager.getSharedFolderPath() + File.separator + ".temp");
-        if (!tempDir.exists()) {
-            tempDir.mkdir();
-        }
+        // Cria uma BlockingQueue para coordenar as tarefas
+        BlockingQueue<Integer> blockQueue = new LinkedBlockingQueue<>(blocksToRequest);
 
-        while (blocksToRequest.size() > 0) {
-            for (NodeConnection connection : nodesWithFile) {
-                // Limitar o número de threads a 10
-                if (threads.size() >= 10) {
+        // Cria um ThreadPool com 5 threads
+        ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(5);
+
+        for (NodeConnection connection : nodesWithFile) {
+            executor.submit(() -> {
+                while (!blockQueue.isEmpty()) {
                     try {
-                        for (Thread thread : threads) {
-                            thread.join();
+                        Integer blockIndex = blockQueue.poll(1, TimeUnit.SECONDS);
+                        if (blockIndex == null) {
+                            break;
                         }
-                        threads.clear();
-                    } catch (InterruptedException e) {
-                        System.out.println("Erro ao esperar pela thread: " + e.getMessage());
-                    }
-                }
-
-                // Cria uma thread para solicitar os blocos
-                Thread thread = new Thread() {
-                    public void run() {
                         try (Socket socket = new Socket(connection.getIpAddress(), connection.getPort());
-                                PrintWriter out = new PrintWriter(socket.getOutputStream(), true);) {
+                                ObjectOutputStream objectOut = new ObjectOutputStream(socket.getOutputStream());
+                                ObjectInputStream objectIn = new ObjectInputStream(socket.getInputStream())) {
 
                             // Enviar pedido de bloco
-                            out.println("BLOCK_REQUEST:" + fileChecksum + ":" + blocksToRequest.remove(0));
-
-                            ObjectInputStream objectIn = new ObjectInputStream(socket.getInputStream());
+                            BlockMessage blockMessage = new BlockMessage(fileChecksum, blockIndex);
+                            objectOut.writeObject(blockMessage);
 
                             // Ler resposta
                             try {
@@ -276,81 +303,52 @@ public class DownloadTaskManager {
                             System.out.println("Erro ao solicitar blocos ao nó " + connection.getIpAddress() + ":"
                                     + connection.getPort() + " - " + e.getMessage());
                         }
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        System.out.println("Erro ao esperar pelo bloco: " + e.getMessage());
                     }
-                };
-                threads.add(thread);
-                thread.start();
-            }
+                }
+            });
         }
+
+        // Desligar o ThreadPool
+        executor.shutdown();
+
         // Esperar que todas as threads terminem
-        for (Thread thread : threads) {
-            try {
-                thread.join();
-            } catch (InterruptedException e) {
-                System.out.println("Erro ao esperar pela thread: " + e.getMessage());
-            }
+        try {
+            executor.awaitTermination(5000, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            System.out.println("Erro ao esperar pelo ThreadPool: " + e.getMessage());
         }
 
         // Verificar se todos os blocos foram recebidos
         System.out.println("Blocos:");
-        for (FileBlockRequestMessage blockRequest : blockRequests) {
-            System.out.println(blockRequest.toString());
-        }
+
+        // Eliminar blockrequests com blockindex duplicados
+        blockRequests = new ArrayList<>(new HashSet<>(blockRequests));
+
+        // Contar o número de blocos não recebidos
+        int missingBlocks = totalBlocks - blockRequests.size();
+
+        // Organizar os blocos por ordem de blockindex
+        blockRequests.sort(Comparator.comparing(FileBlockRequestMessage::getBlockIndex));
         System.out.println("Blocos recebidos: " + blockRequests.size());
-        blocksToRepeat = new ArrayList<>();
+        System.out.println("Blocos em falta: " + missingBlocks);
 
-        // Escrever os ficheiros dos blocos na pasta temporária
-        for (int i = 0; i < Integer.valueOf(responses.get(0).split(":")[1]); i++) {
-            for (FileBlockRequestMessage blockRequest : blockRequests) {
-                if (blockRequest.getBlockIndex() == i) {
-                    File blockFile = new File(
-                            tempDir.getAbsolutePath() + File.separator + blockRequest.getFileName() + ".part"
-                                    + blockRequest.getBlockIndex());
-                    try (FileOutputStream fos = new FileOutputStream(blockFile)) {
-                        fos.write(blockRequest.getData());
-                        break;
-                    } catch (IOException e) {
-                        System.out.println("Erro ao escrever bloco: " + e.getMessage());
-                    }
-                } else if (blockRequest == blockRequests.getLast()) {
-                    blocksToRepeat.add(String.valueOf(i));
-                    System.out.println("Erro: bloco " + i + " não recebido.");
-                }
-            }
-        }
-
-        // Verificar se todos os blocos foram recebidos
-        File[] blockFiles = tempDir.listFiles();
-        if (blockFiles != null && blockFiles.length == Integer.valueOf(responses.get(0).split(":")[1])) {
-            System.out.println("Todos os blocos foram recebidos.");
-        } else {
-            System.out.println("Erro: nem todos os blocos foram recebidos.");
-            requestFileBlocks(fileName, nodesWithFile, responses, blocksToRepeat);
-        }
+        return blockRequests;
     }
 
     // Método para reconstruir o ficheiro a partir dos blocos
-    private void rebuildFile(String fileName) {
-        File tempDir = new File(sharedFilesManager.getSharedFolderPath() + File.separator + ".temp");
-        File[] blockFiles = tempDir.listFiles();
-        for (int i = 0; i < blockFiles.length; i++) {
-            try (FileInputStream fis = new FileInputStream(sharedFilesManager.getSharedFolderPath() + File.separator
-                    + ".temp" + File.separator + fileName + ".part" + i);
-                    FileOutputStream fos = new FileOutputStream(
-                            sharedFilesManager.getSharedFolderPath() + File.separator + fileName, true)) {
-                byte[] data = new byte[(int) blockFiles[i].length()];
-                fis.read(data);
-                fos.write(data);
+    private void rebuildFile(List<FileBlockRequestMessage> fileBlocks) {
+        for (FileBlockRequestMessage block : fileBlocks) {
+            String fileName = block.getFileName();
+            String filePath = sharedFilesManager.getSharedFolderPath() + File.separator + fileName;
+            try (FileOutputStream fos = new FileOutputStream(filePath, true)) {
+                fos.write(block.getData());
             } catch (IOException e) {
                 System.out.println("Erro ao reconstruir o ficheiro: " + e.getMessage());
             }
         }
-
-        // Eliminar os blocos temporários
-        for (File blockFile : blockFiles) {
-            blockFile.delete();
-        }
-        tempDir.delete();
     }
 
     public SharedFilesManager getSharedFilesManager() {

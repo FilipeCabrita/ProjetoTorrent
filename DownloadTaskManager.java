@@ -22,9 +22,9 @@ public class DownloadTaskManager {
     }
 
     // Método para criar mensagens de pedido de blocos de ficheiros
-    private void createBlockRequests() {
+    public void createBlockRequests() {
         List<File> sharedFiles = sharedFilesManager.getSharedFiles();
-
+        blockRequestMessages.clear();
         for (File file : sharedFiles) {
             long fileSize = file.length();
             String fileName = file.getName();

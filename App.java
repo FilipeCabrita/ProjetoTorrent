@@ -187,6 +187,7 @@ public class App extends JFrame {
                 JOptionPane.showMessageDialog(this, "Erro ao descarregar o ficheiro '" + fileName + "'", "Erro",
                         JOptionPane.ERROR_MESSAGE);
                 sharedFilesManager.loadSharedFiles();
+                downloadManager.createBlockRequests();
                 return;
             }
             String message = "Ficheiro '" + fileName + "' descarregado com sucesso!\n\n";
@@ -197,6 +198,7 @@ public class App extends JFrame {
             JOptionPane.showMessageDialog(this, message, "Sucesso",
                     JOptionPane.INFORMATION_MESSAGE);
             sharedFilesManager.loadSharedFiles();
+            downloadManager.createBlockRequests();
         } else {
             JOptionPane.showMessageDialog(this, "Selecione um ficheiro para descarregar!", "Erro",
                     JOptionPane.ERROR_MESSAGE);

@@ -3,8 +3,6 @@ import java.net.*;
 import java.util.*;
 import java.util.concurrent.*;
 
-import javax.swing.DefaultListModel;
-
 public class DownloadTaskManager {
     private SharedFilesManager sharedFilesManager;
     private List<FileBlockRequestMessage> blockRequestMessages;
@@ -104,37 +102,8 @@ public class DownloadTaskManager {
         return activeConnections;
     }
 
-    private List<String> processResults(List<String> fileList) {
-        // Map para contar as ocorrências de cada hash
-        Map<String, Integer> hashCounts = new HashMap<>();
-
-        // Contar ocorrências de cada hash
-        for (String file : fileList) {
-            String[] parts = file.split(":");
-            String hash = parts[2];
-            hashCounts.put(hash, hashCounts.getOrDefault(hash, 0) + 1);
-        }
-
-        // Adicionar o número de ocorrências e remover duplicados
-        Set<String> resultSet = new LinkedHashSet<>();
-        for (String file : fileList) {
-            String[] parts = file.split(":");
-            String name = parts[0];
-            String size = parts[1];
-            String hash = parts[2];
-            int count = hashCounts.get(hash);
-
-            // Construir a nova string com a contagem
-            String updatedFile = String.format("%s:%s:%s:%d", name, size, hash, count);
-            resultSet.add(updatedFile); // LinkedHashSet mantém a ordem e remove duplicados
-        }
-
-        // Retornar como lista
-        return new ArrayList<>(resultSet);
-    }
-
     // Método para pesquisar ficheiros em nós conectados
-    public List<String> searchFilesInConnectedNodes(String keyword, DefaultListModel<String> resultArea) {
+    public List<String> searchFilesInConnectedNodes(String keyword, CountDownLatch latch) {
         List<String> results = Collections.synchronizedList(new ArrayList<>());
         List<Thread> threads = new ArrayList<>();
 
@@ -155,14 +124,6 @@ public class DownloadTaskManager {
                             response = (SearchResultsMessage) objectIn.readObject();
                             if (response != null && response.getType().equals("SEARCH_RESULTS")) {
                                 results.addAll(response.getResults());
-                                List<String> uniqueResults = processResults(results);
-                                for (String result : uniqueResults) {
-                                    String name = result.split(":")[0];
-                                    String size = result.split(":")[1];
-                                    int count = Integer.parseInt(result.split(":")[3]);
-                                    result = name + " | Tamanho: " + App.convertBytes(Long.parseLong(size)) + " | Nós: " + count;
-                                    resultArea.addElement(result);
-                                }
                                 System.out.println("Resposta do nó " + connection.getIpAddress() + ":"
                                         + connection.getPort()
                                         + ": " + response.getMessage());
@@ -173,6 +134,8 @@ public class DownloadTaskManager {
                     } catch (IOException e) {
                         System.out.println("Erro ao buscar no nó " + connection.getIpAddress() + ":"
                                 + connection.getPort() + " - " + e.getMessage());
+                    } finally {
+                        latch.countDown();
                     }
                 }
             };

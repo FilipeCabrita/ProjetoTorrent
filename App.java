@@ -10,6 +10,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 
 public class App extends JFrame {
     private SharedFilesManager sharedFilesManager;
@@ -105,6 +106,35 @@ public class App extends JFrame {
         }
     }
 
+    private List<String> processResults(List<String> fileList) {
+        // Map para contar as ocorrências de cada hash
+        Map<String, Integer> hashCounts = new HashMap<>();
+
+        // Contar ocorrências de cada hash
+        for (String file : fileList) {
+            String[] parts = file.split(":");
+            String hash = parts[2];
+            hashCounts.put(hash, hashCounts.getOrDefault(hash, 0) + 1);
+        }
+
+        // Adicionar o número de ocorrências e remover duplicados
+        Set<String> resultSet = new LinkedHashSet<>();
+        for (String file : fileList) {
+            String[] parts = file.split(":");
+            String name = parts[0];
+            String size = parts[1];
+            String hash = parts[2];
+            int count = hashCounts.get(hash);
+
+            // Construir a nova string com a contagem
+            String updatedFile = String.format("%s:%s:%s:%d", name, size, hash, count);
+            resultSet.add(updatedFile); // LinkedHashSet mantém a ordem e remove duplicados
+        }
+
+        // Retornar como lista
+        return new ArrayList<>(resultSet);
+    }
+
     private void searchResults() {
         String keyword = searchField.getText();
 
@@ -116,10 +146,29 @@ public class App extends JFrame {
         // Adicionar resultados locais à interface gráfica
         resultArea.clear();
 
+        CountDownLatch latch = new CountDownLatch(downloadManager.getActiveConnections().size());
         // Buscar arquivos em nós conectados
-        downloadManager.searchFilesInConnectedNodes(keyword, resultArea);
-        // Processar os resultados
+        List<String> distributedResults = downloadManager.searchFilesInConnectedNodes(keyword, latch);
+        System.out.println("Resultados distribuídos: " + distributedResults);
 
+        // Aguardar até que todas as conexões retornem resultados
+        try {
+            latch.await();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        // Processar os resultados
+        List<String> uniqueResults = processResults(distributedResults);
+
+        // Adicionar resultados à interface gráfica
+        for (String result : uniqueResults) {
+            String name = result.split(":")[0];
+            String size = result.split(":")[1];
+            int count = Integer.parseInt(result.split(":")[3]);
+            result = name + " | Tamanho: " + convertBytes(Long.parseLong(size)) + " | Nós: " + count;
+            resultArea.addElement(result);
+        }
     }
 
     private void downloadSelectedFile() {

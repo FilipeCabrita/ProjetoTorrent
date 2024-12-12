@@ -9,6 +9,7 @@ import java.nio.file.Files;
 public class ConnectionManager {
     private DownloadTaskManager downloadManager;
     private ServerSocket serverSocket;
+    private ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(5);
 
     public ConnectionManager(DownloadTaskManager downloadManager) {
         this.downloadManager = downloadManager;
@@ -28,8 +29,8 @@ public class ConnectionManager {
                         Socket clientSocket = serverSocket.accept();
                         System.out.println("Conexão recebida de " + clientSocket.getInetAddress().getHostAddress());
 
-                        // Processar o pedido do cliente
-                        handleClientRequest(clientSocket);
+                        // Processar o pedido do cliente usando ThreadPoolExecutor
+                        executor.execute(() -> handleClientRequest(clientSocket));
                     } catch (IOException e) {
                         System.out.println("Erro ao aceitar conexão: " + e.getMessage());
                     }
@@ -149,20 +150,20 @@ public class ConnectionManager {
     }
 
     private void handleBlockRequest(Message message, ObjectOutputStream objectOut, ObjectInputStream objectIn) {
-        BlockMessage blockMessage = (BlockMessage) message;
-        String fileChecksum = blockMessage.getChecksum();
-        int blockIndex = blockMessage.getBlockIndex();
-        for (FileBlockRequestMessage fileBlockMessage : downloadManager.getBlockRequestMessages()) {
-            if (fileBlockMessage.getFileChecksum().equals(fileChecksum)
-                    && fileBlockMessage.getBlockIndex() == blockIndex) {
-                try {
-                    objectOut.writeObject(fileBlockMessage); // Enviar bloco de ficheiro
-                    System.out.println("Bloco de ficheiro " + blockIndex + " enviado para o cliente.");
-                    break;
-                } catch (IOException e) {
-                    System.out.println("Erro ao enviar bloco de ficheiro: " + e.getMessage());
+            BlockMessage blockMessage = (BlockMessage) message;
+            String fileChecksum = blockMessage.getChecksum();
+            int blockIndex = blockMessage.getBlockIndex();
+            for (FileBlockRequestMessage fileBlockMessage : downloadManager.getBlockRequestMessages()) {
+                if (fileBlockMessage.getFileChecksum().equals(fileChecksum)
+                && fileBlockMessage.getBlockIndex() == blockIndex) {
+                    try {
+                        objectOut.writeObject(fileBlockMessage); // Enviar bloco de ficheiro
+                        System.out.println("Bloco de ficheiro " + blockIndex + " enviado para o cliente.");
+                        break;
+                    } catch (IOException e) {
+                        System.out.println("Erro ao enviar bloco de ficheiro: " + e.getMessage());
+                    }
                 }
             }
-        }
     }
 }

@@ -38,7 +38,7 @@ public class DownloadTaskManager {
                     byte[] blockData = new byte[currentBlockSize];
                     fis.read(blockData);
                     FileBlockRequestMessage blockRequest = new FileBlockRequestMessage(fileName, blockIndex,
-                            currentBlockSize, blockData, fileChecksum);
+                            currentBlockSize, blockData, fileChecksum, new NodeConnection(ipAddress, port));
                     blockRequestMessages.add(blockRequest);
                 } catch (IOException e) {
                     System.out.println("Erro ao criar pedido de bloco: " + e.getMessage());
@@ -147,12 +147,12 @@ public class DownloadTaskManager {
     }
 
     // Método para solicitar download de ficheiros a nós conectados
-    public void requestDownloadToNodes(String fileName) {
+    public Map<String, Integer> requestDownloadToNodes(String fileName) {
         // Verificar se o ficheiro já existe localmente
         File localFile = sharedFilesManager.getFileByName(fileName);
         if (localFile != null) {
             System.out.println("O ficheiro já existe localmente.");
-            return;
+            return null;
         }
         List<NodeConnection> nodesWithFile = new ArrayList<>();
         List<Thread> threads = new ArrayList<>();
@@ -205,7 +205,22 @@ public class DownloadTaskManager {
             }
         }
         List<FileBlockRequestMessage> fileBlocks = requestFileBlocksThreadPool(fileName, nodesWithFile, responses);
+        if (fileBlocks == null) {
+            throw new RuntimeException("Erro ao solicitar blocos de ficheiros.");
+        }
+
+        // Cria um dicionário, como key o originNode e como value um Integer que representa o total de blocos enviados
+        Map<String, Integer> blocksSent = new HashMap<>();
+        for (FileBlockRequestMessage block : fileBlocks) {
+            NodeConnection originNode = block.getOriginNode();
+            if (blocksSent.containsKey(originNode.toString())) {
+                blocksSent.put(originNode.toString(), blocksSent.get(originNode.toString()) + 1);
+            } else {
+                blocksSent.put(originNode.toString(), 1);
+            }
+        }
         rebuildFile(fileBlocks);
+        return blocksSent;
     }
 
     // Método para solicitar blocos de ficheiros a nós conectados
@@ -295,8 +310,10 @@ public class DownloadTaskManager {
 
         // Organizar os blocos por ordem de blockindex
         blockRequests.sort(Comparator.comparing(FileBlockRequestMessage::getBlockIndex));
-        System.out.println("Blocos recebidos: " + blockRequests.size());
-        System.out.println("Blocos em falta: " + missingBlocks);
+        if (missingBlocks > 0) {
+            System.out.println("Erro: " + missingBlocks + " blocos não foram recebidos.");
+            return null;
+        }
 
         return blockRequests;
     }

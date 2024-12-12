@@ -11,13 +11,15 @@ class FileBlockRequestMessage implements Serializable {
     private byte[] data;
     private String fileChecksum;
     private String blockChecksum;
+    private NodeConnection originNode;
 
-    public FileBlockRequestMessage(String fileName, int blockIndex, int blockSize, byte[] data, String fileChecksum) {
+    public FileBlockRequestMessage(String fileName, int blockIndex, int blockSize, byte[] data, String fileChecksum, NodeConnection originNode) {
         this.fileName = fileName;
         this.blockIndex = blockIndex;
         this.blockSize = blockSize;
         this.data = data;
         this.fileChecksum = fileChecksum;
+        this.originNode = originNode;
         try {
             byte[] hash = MessageDigest.getInstance("SHA-256").digest(data);
             this.blockChecksum = new BigInteger(1, hash).toString(16);
@@ -50,6 +52,10 @@ class FileBlockRequestMessage implements Serializable {
         return blockChecksum;
     }
 
+    public NodeConnection getOriginNode() {
+        return originNode;
+    }
+
     @Override
     public String toString() {
         return "FileBlockRequestMessage{" +
@@ -58,6 +64,7 @@ class FileBlockRequestMessage implements Serializable {
                 ", blockSize=" + blockSize +
                 ", fileChecksum='" + fileChecksum + '\'' +
                 ", blockChecksum='" + blockChecksum + '\'' +
+                ", originNode=" + originNode +
                 '}';
     }
 }

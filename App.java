@@ -173,17 +173,28 @@ public class App extends JFrame {
 
     private void downloadSelectedFile() {
         String selectedFile = searchResultsList.getSelectedValue();
+        Map<String, Integer> downloadResults;
         if (selectedFile != null) {
             String fileName = selectedFile.split("\\|")[0].trim();
             try {
-                downloadManager.requestDownloadToNodes(fileName);
+                downloadResults = downloadManager.requestDownloadToNodes(fileName);
+                if (downloadResults.isEmpty()) {
+                    JOptionPane.showMessageDialog(this, "Ficheiro '" + fileName + "' não encontrado!", "Erro",
+                            JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
             } catch (Exception e) {
                 JOptionPane.showMessageDialog(this, "Erro ao descarregar o ficheiro '" + fileName + "'", "Erro",
                         JOptionPane.ERROR_MESSAGE);
                 sharedFilesManager.loadSharedFiles();
                 return;
             }
-            JOptionPane.showMessageDialog(this, "Ficheiro '" + fileName + "' descarregado com sucesso!", "Sucesso",
+            String message = "Ficheiro '" + fileName + "' descarregado com sucesso!\n\n";
+            for (Map.Entry<String, Integer> entry : downloadResults.entrySet()) {
+                message += "Nó: " + entry.getKey() + " | Blocos: "
+                        + entry.getValue() + "\n";
+            }
+            JOptionPane.showMessageDialog(this, message, "Sucesso",
                     JOptionPane.INFORMATION_MESSAGE);
             sharedFilesManager.loadSharedFiles();
         } else {

@@ -1,13 +1,31 @@
 // Classe que representa um pedido de bloco de ficheiro
-class FileBlockRequestMessage {
+import java.io.Serializable;
+import java.math.BigInteger;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+
+class FileBlockRequestMessage implements Serializable {
     private String fileName;
     private int blockIndex;
     private int blockSize;
+    private byte[] data;
+    private String fileChecksum;
+    private String blockChecksum;
+    private NodeConnection originNode;
 
-    public FileBlockRequestMessage(String fileName, int blockIndex, int blockSize) {
+    public FileBlockRequestMessage(String fileName, int blockIndex, int blockSize, byte[] data, String fileChecksum, NodeConnection originNode) {
         this.fileName = fileName;
         this.blockIndex = blockIndex;
         this.blockSize = blockSize;
+        this.data = data;
+        this.fileChecksum = fileChecksum;
+        this.originNode = originNode;
+        try {
+            byte[] hash = MessageDigest.getInstance("SHA-256").digest(data);
+            this.blockChecksum = new BigInteger(1, hash).toString(16);
+        } catch (NoSuchAlgorithmException e) {
+            System.out.println("Erro ao criar instância de MessageDigest: " + e.getMessage());
+        }
     }
 
     public String getFileName() {
@@ -22,8 +40,20 @@ class FileBlockRequestMessage {
         return blockSize;
     }
 
-    public long getOffset() {
-        return (long) blockIndex * blockSize;
+    public byte[] getData() {
+        return data;
+    }
+
+    public String getFileChecksum() {
+        return fileChecksum;
+    }
+
+    public String getBlockChecksum() {
+        return blockChecksum;
+    }
+
+    public NodeConnection getOriginNode() {
+        return originNode;
     }
 
     @Override
@@ -32,6 +62,9 @@ class FileBlockRequestMessage {
                 "fileName='" + fileName + '\'' +
                 ", blockIndex=" + blockIndex +
                 ", blockSize=" + blockSize +
+                ", fileChecksum='" + fileChecksum + '\'' +
+                ", blockChecksum='" + blockChecksum + '\'' +
+                ", originNode=" + originNode +
                 '}';
     }
 }

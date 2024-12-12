@@ -1,16 +1,18 @@
 import java.io.*;
+import java.math.BigInteger;
 import java.net.*;
 import java.util.*;
 import java.util.concurrent.*;
+import java.security.*;
+import java.nio.file.Files;
 
 public class ConnectionManager {
     private DownloadTaskManager downloadManager;
     private ServerSocket serverSocket;
-    private List<NodeConnection> activeConnections; // Lista de conexões ativas
+    private ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(5);
 
     public ConnectionManager(DownloadTaskManager downloadManager) {
         this.downloadManager = downloadManager;
-        this.activeConnections = new CopyOnWriteArrayList<>(); // Lista thread-safe
     }
 
     // Iniciar o servidor para escutar na porta especificada
@@ -27,21 +29,8 @@ public class ConnectionManager {
                         Socket clientSocket = serverSocket.accept();
                         System.out.println("Conexão recebida de " + clientSocket.getInetAddress().getHostAddress());
 
-
-                        // Adicionar o nó à lista de conexões ativas se ainda não estiver presente
-                        if (activeConnections.stream().noneMatch(
-                                conn -> conn.getIpAddress().equals(clientSocket.getInetAddress().getHostAddress())
-                                        && conn.getPort() == clientSocket.getLocalPort())) {
-                            NodeConnection newConnection = new NodeConnection(
-                                    clientSocket.getInetAddress().getHostAddress(), clientSocket.getLocalPort());
-                            activeConnections.add(newConnection);
-                            System.out.println("Conexões ativas: " + activeConnections);
-                        } else {
-                            System.out.println("Conexão já existente.");
-                        }
-
-                        // Processar o pedido do cliente
-                        handleClientRequest(clientSocket);
+                        // Processar o pedido do cliente usando ThreadPoolExecutor
+                        executor.execute(() -> handleClientRequest(clientSocket));
                     } catch (IOException e) {
                         System.out.println("Erro ao aceitar conexão: " + e.getMessage());
                     }
@@ -54,28 +43,127 @@ public class ConnectionManager {
 
     // Método para processar pedidos do cliente
     private void handleClientRequest(Socket clientSocket) {
-        try (BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-                PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true)) {
+        try (ObjectOutputStream objectOut = new ObjectOutputStream(clientSocket.getOutputStream());
+                ObjectInputStream objectIn = new ObjectInputStream(clientSocket.getInputStream())) {
+            try {
+                Message request = (Message) objectIn.readObject();
 
-            String request = in.readLine();
-
-            if (request != null && request.startsWith("SEARCH:")) {
-                String keyword = request.substring(7); // Extrair o termo de busca
-                System.out.println("Pedido de busca recebido: " + keyword);
-                List<File> searchResults = downloadManager.getSharedFilesManager().searchFiles(keyword);
-                for (File file : searchResults) {
-                    out.println("Nome: " + file.getName() + " | Tamanho: " + App.convertBytes(file.length()));
+                // Verificar o tipo de pedido
+                // Pedido de conexão
+                if (request != null && request.getType().equals("HELLO")) {
+                    handleHello(request, objectOut, objectIn);
                 }
-                System.out.println("Conexões ativas: " + activeConnections);
-                System.out.println("Resultados enviados para o cliente.");
+                // Pedido de pesquisa
+                else if (request != null && request.getType().equals("SEARCH")) {
+                    handleSearch(request, objectOut, objectIn);
+                    // Pedido de download
+                } else if (request != null && request.getType().equals("DOWNLOAD")) {
+                    handleDownload(request, objectOut, objectIn);
+                } else if (request != null && request.getType().equals("BLOCK")) {
+                    handleBlockRequest(request, objectOut, objectIn);
+                } else {
+                    System.out.println("Pedido inválido recebido.");
+                }
+            } catch (ClassNotFoundException e) {
+                System.out.println("Erro ao ler pedido do cliente: " + e.getMessage());
             }
         } catch (IOException e) {
             System.out.println("Erro ao processar pedido do cliente: " + e.getMessage());
         }
     }
 
-    // Método para obter as conexões ativas
-    public List<NodeConnection> getActiveConnections() {
-        return activeConnections;
+    private void handleHello(Message message, ObjectOutputStream objectOut, ObjectInputStream objectIn) {
+        HelloMessage helloMessage = (HelloMessage) message;
+        String ipAddress = helloMessage.getIpAddress();
+        int port = helloMessage.getPort();
+        NodeConnection nodeConnection = new NodeConnection(ipAddress, port);
+        System.out.println("Pedido de conexão recebido de " + ipAddress + ":" + port);
+        downloadManager.addActiveConnection(nodeConnection);
+        try {
+            HelloMessage response = new HelloMessage(downloadManager.getIpAddress(), downloadManager.getPort());
+            objectOut.writeObject(response);
+        } catch (IOException e) {
+            System.out.println("Erro ao enviar resposta HELLO: " + e.getMessage());
+        }
+    }
+
+    private void handleSearch(Message message, ObjectOutputStream objectOut, ObjectInputStream objectIn) {
+        SearchMessage searchMessage = (SearchMessage) message;
+        String keyword = searchMessage.getQuery(); // Extrair o termo de busca
+        System.out.println("Pedido de busca recebido: \"" + keyword + "\"");
+        List<File> searchResults = downloadManager.getSharedFilesManager().searchFiles(keyword);
+        List<String> results = new ArrayList<>();
+        try {
+            for (File file : searchResults) {
+                // Calcular o hash do ficheiro
+                byte[] data = Files.readAllBytes(file.toPath());
+                byte[] hash = MessageDigest.getInstance("SHA-256").digest(data);
+                String checksum = new BigInteger(1, hash).toString(16);
+                results.add(file.getName() + ":" + file.length() + ":" + checksum); // Adicionar resultados
+            }
+            SearchResultsMessage response = new SearchResultsMessage(results); // Criar mensagem de resposta
+            objectOut.writeObject(response); // Enviar resultados
+        } catch (NoSuchAlgorithmException | IOException e) {
+            System.out.println("Erro ao criar instância de MessageDigest: " + e.getMessage());
+        }
+
+        System.out.println("Resultados enviados para o cliente.");
+    }
+
+    private void handleDownload(Message message, ObjectOutputStream objectOut, ObjectInputStream objectIn) {
+        DownloadMessage downloadMessage = (DownloadMessage) message;
+        String fileName = downloadMessage.getFileName();
+        String checksum = "";
+        System.out.println("Pedido de download recebido: " + fileName);
+        File file = downloadManager.getSharedFilesManager().getFileByName(fileName);
+        if (file != null) {
+            System.out.println("Ficheiro encontrado: " + file.getName());
+            int fileBlocks = 0;
+            try {
+                byte[] data = Files.readAllBytes(file.toPath());
+                byte[] hash = MessageDigest.getInstance("SHA-256").digest(data);
+                checksum = new BigInteger(1, hash).toString(16);
+            } catch (NoSuchAlgorithmException | IOException e) {
+                System.out.println("Erro ao criar instância de MessageDigest: " + e.getMessage());
+            }
+            for (FileBlockRequestMessage blockMessage : downloadManager.getBlockRequestMessages()) {
+                if (blockMessage.getFileName().equals(fileName)) {
+                    fileBlocks++;
+                }
+            }
+            DownloadResultMessage response = new DownloadResultMessage(checksum, true, fileBlocks);
+            try {
+                objectOut.writeObject(response); // Enviar resposta de sucesso
+                System.out.println("Resposta de download enviada para o cliente.");
+            } catch (IOException e) {
+                System.out.println("Erro ao enviar resposta de download: " + e.getMessage());
+            }
+        } else {
+            DownloadResultMessage response = new DownloadResultMessage(checksum, false, 0);
+            try {
+                objectOut.writeObject(response); // Enviar resposta de falha
+                System.out.println("Resposta de download enviada para o cliente.");
+            } catch (IOException e) {
+                System.out.println("Erro ao enviar resposta de download: " + e.getMessage());
+            }
+        }
+    }
+
+    private void handleBlockRequest(Message message, ObjectOutputStream objectOut, ObjectInputStream objectIn) {
+            BlockMessage blockMessage = (BlockMessage) message;
+            String fileChecksum = blockMessage.getChecksum();
+            int blockIndex = blockMessage.getBlockIndex();
+            for (FileBlockRequestMessage fileBlockMessage : downloadManager.getBlockRequestMessages()) {
+                if (fileBlockMessage.getFileChecksum().equals(fileChecksum)
+                && fileBlockMessage.getBlockIndex() == blockIndex) {
+                    try {
+                        objectOut.writeObject(fileBlockMessage); // Enviar bloco de ficheiro
+                        System.out.println("Bloco de ficheiro " + blockIndex + " enviado para o cliente.");
+                        break;
+                    } catch (IOException e) {
+                        System.out.println("Erro ao enviar bloco de ficheiro: " + e.getMessage());
+                    }
+                }
+            }
     }
 }

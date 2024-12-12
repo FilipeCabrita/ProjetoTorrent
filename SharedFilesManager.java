@@ -1,4 +1,9 @@
 import java.io.File;
+import java.io.IOException;
+import java.math.BigInteger;
+import java.nio.file.Files;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -14,7 +19,8 @@ public class SharedFilesManager {
     }
 
     // Método para carregar os ficheiros da pasta especificada
-    private void loadSharedFiles() {
+    public void loadSharedFiles() {
+        sharedFiles.clear();
         File folder = new File(sharedFolderPath);
         
         // Verifica se o caminho é uma pasta válida
@@ -23,6 +29,11 @@ public class SharedFilesManager {
             
             if (files != null) {
                 for (File file : files) {
+                    // Ignora ficheiros ocultos
+                    if (file.getName().startsWith(".")) {
+                        continue;
+                    }
+                    
                     // Verifica se é um ficheiro e não uma subpasta
                     if (file.isFile()) {
                         sharedFiles.add(file);
@@ -55,25 +66,34 @@ public class SharedFilesManager {
         return searchResults;
     }
 
-    // Exemplo de uso
-    public static void main(String[] args) {
-        // Exemplo de caminho da pasta (modificar conforme necessário)
-        String sharedFolderPath = "./downloads";
-        
-        // Instancia o gestor de ficheiros partilhados
-        SharedFilesManager manager = new SharedFilesManager(sharedFolderPath);
-
-        // Exibe todos os ficheiros partilhados
-        System.out.println("Ficheiros partilhados:");
-        for (File file : manager.getSharedFiles()) {
-            System.out.println(file.getName());
+    // Método para obter um ficheiro pelo nome
+    public File getFileByName(String fileName) {
+        for (File file : sharedFiles) {
+            if (file.getName().equals(fileName)) {
+                return file;
+            }
         }
+        return null;
+    }
 
-        // Pesquisa por ficheiros que contêm "exemplo" no nome
-        List<File> searchResults = manager.searchFiles("exemplo");
-        System.out.println("\nResultados da pesquisa:");
-        for (File file : searchResults) {
-            System.out.println(file.getName());
+    // Método para retornar o checksum de um ficheiro por nome
+    public String getFileChecksum(String fileName) { 
+        String checksum;
+        File file = getFileByName(fileName);
+        try{
+            if (file != null) {
+                try {
+                    byte[] data = Files.readAllBytes(file.toPath());
+                    byte[] hash = MessageDigest.getInstance("SHA-256").digest(data);
+                    checksum = new BigInteger(1, hash).toString(16);
+                    return checksum;
+                } catch (NoSuchAlgorithmException e) {
+                    System.out.println("Erro ao criar instância de MessageDigest: " + e.getMessage());
+                }
+            }
+        } catch (IOException e) {
+            System.out.println("Erro ao ler ficheiro: " + e.getMessage());
         }
+        return null;
     }
 }

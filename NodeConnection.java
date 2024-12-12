@@ -1,4 +1,6 @@
-public class NodeConnection {
+import java.io.Serializable;
+
+public class NodeConnection implements Serializable {
     private String ip;
     private int port;
 
